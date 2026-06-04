@@ -18,11 +18,11 @@ from shared_enums import WeaponID
 
 # Zones exactes des noms d'armes (2560x1440)
 CAPTURE_SLOTS = {
-    "slot 1 (gauche)": {"top": 575, "left": 880,  "width": 420, "height": 45},
-    "slot 2 (droite)": {"top": 575, "left": 1615, "width": 420, "height": 45},
+    "slot 1 (gauche)": {"top": 430, "left": 890,  "width": 400, "height": 40},
+    "slot 2 (droite)": {"top": 430, "left": 1620, "width": 400, "height": 40},
 }
 
-TEMPLATE_DIR = "templates"
+TEMPLATE_DIR = "pc1-vision/templates"
 HOTKEY = "f8"
 
 WEAPON_NAMES = [w for w in WeaponID if w != WeaponID.NONE]
@@ -100,13 +100,13 @@ def capture_and_process():
     print(f"\n[F8] Capture en cours...")
 
     for side_name, region in CAPTURE_SLOTS.items():
-        with mss.mss() as sct:
+        with mss.MSS() as sct:
             screenshot = sct.grab(region)
         frame = np.array(screenshot)
         _, half_mask = extract_white_text(frame)
 
         if True:
-        bbox = crop_to_text(half_mask)
+            bbox = crop_to_text(half_mask)
         if bbox is None:
             print(f"  Aucun texte blanc détecté côté {side_name}, ignoré.")
             continue
