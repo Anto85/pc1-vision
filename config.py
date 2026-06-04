@@ -1,13 +1,9 @@
 PC2_IP = "192.168.1.50"
 UDP_PORT = 8000
 
-# Zone de capture de l'inventaire (à ajuster selon ta résolution et position du HUD)
-CAPTURE_REGION = {
-    "top": 800,
-    "left": 0,
-    "width": 1920,
-    "height": 280,
-}
+# Zones de texte des noms d'armes (2560x1440) — isolent uniquement la ligne du nom
+CAPTURE_SLOT_1 = {"top": 575, "left": 880,  "width": 420, "height": 45}
+CAPTURE_SLOT_2 = {"top": 575, "left": 1615, "width": 420, "height": 45}
 
 # Durée minimale de maintien de TAB pour déclencher l'analyse (en secondes)
 TAB_HOLD_THRESHOLD = 1.0

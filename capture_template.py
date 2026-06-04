@@ -10,18 +10,16 @@ Usage :
 """
 
 import os
-import time
 import mss
 import numpy as np
 import cv2
 import keyboard
 from shared_enums import WeaponID
 
-CAPTURE_REGION = {
-    "top": 800,
-    "left": 0,
-    "width": 1920,
-    "height": 280,
+# Zones exactes des noms d'armes (2560x1440)
+CAPTURE_SLOTS = {
+    "slot 1 (gauche)": {"top": 575, "left": 880,  "width": 420, "height": 45},
+    "slot 2 (droite)": {"top": 575, "left": 1615, "width": 420, "height": 45},
 }
 
 TEMPLATE_DIR = "templates"
@@ -100,20 +98,14 @@ def show_weapon_menu() -> WeaponID | None:
 
 def capture_and_process():
     print(f"\n[F8] Capture en cours...")
-    with mss.mss() as sct:
-        screenshot = sct.grab(CAPTURE_REGION)
+
+    for side_name, region in CAPTURE_SLOTS.items():
+        with mss.mss() as sct:
+            screenshot = sct.grab(region)
         frame = np.array(screenshot)
+        _, half_mask = extract_white_text(frame)
 
-    gray, white_mask = extract_white_text(frame)
-
-    # Coupe en deux : slot gauche et slot droit
-    mid = white_mask.shape[1] // 2
-    halves = {
-        "gauche (slot 1)": white_mask[:, :mid],
-        "droite (slot 2)": white_mask[:, mid:],
-    }
-
-    for side_name, half_mask in halves.items():
+        if True:
         bbox = crop_to_text(half_mask)
         if bbox is None:
             print(f"  Aucun texte blanc détecté côté {side_name}, ignoré.")

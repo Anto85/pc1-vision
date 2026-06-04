@@ -2,10 +2,10 @@ import mss
 import numpy as np
 import cv2
 import os
-from config import CAPTURE_REGION, TEMPLATE_DIR, MATCH_THRESHOLD
+from config import CAPTURE_SLOT_1, CAPTURE_SLOT_2, TEMPLATE_DIR, MATCH_THRESHOLD
 from shared_enums import WeaponID
 
-# Cache en RAM : {WeaponID.value -> np.ndarray (template en niveaux de gris binarisé)}
+# Cache en RAM : {WeaponID.value -> np.ndarray (template binarisé)}
 _templates: dict[int, np.ndarray] = {}
 
 
@@ -25,8 +25,14 @@ def load_templates() -> None:
     print(f"Templates chargés ({len(loaded)}) : {loaded}")
 
 
+def _capture_region(region: dict) -> np.ndarray:
+    with mss.mss() as sct:
+        shot = sct.grab(region)
+    frame = np.array(shot)
+    return cv2.cvtColor(frame, cv2.COLOR_BGRA2GRAY)
+
+
 def _match_weapon(region_gray: np.ndarray) -> int:
-    """Retourne le WeaponID le plus probable dans la région donnée."""
     _, binary = cv2.threshold(region_gray, 200, 255, cv2.THRESH_BINARY)
 
     best_score = 0.0
@@ -52,21 +58,6 @@ def _match_weapon(region_gray: np.ndarray) -> int:
 
 
 def detect_weapons() -> tuple[int, int]:
-    """
-    Capture la zone d'inventaire et retourne (slot1_id, slot2_id).
-    L'inventaire est coupé en deux moitiés : gauche = slot 1, droite = slot 2.
-    """
-    with mss.mss() as sct:
-        screenshot = sct.grab(CAPTURE_REGION)
-        frame = np.array(screenshot)
-
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGRA2GRAY)
-
-    mid = gray.shape[1] // 2
-    left_region = gray[:, :mid]
-    right_region = gray[:, mid:]
-
-    slot1_id = _match_weapon(left_region)
-    slot2_id = _match_weapon(right_region)
-
+    slot1_id = _match_weapon(_capture_region(CAPTURE_SLOT_1))
+    slot2_id = _match_weapon(_capture_region(CAPTURE_SLOT_2))
     return slot1_id, slot2_id
