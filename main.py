@@ -2,7 +2,7 @@ import time
 import keyboard
 from config import TAB_HOLD_THRESHOLD, KEY_SLOT_1, KEY_SLOT_2, KEY_HOLSTER, KEY_INVENTORY
 from network_client import send_slot_change, send_init
-from vision import load_model, detect_weapons
+from vision import load_templates, detect_weapons
 from shared_enums import WeaponAction
 
 _tab_pressed_time: float = 0
@@ -28,14 +28,14 @@ def on_key_event(e: keyboard.KeyboardEvent) -> None:
             _tab_pressed_time = 0
 
             if hold_duration > TAB_HOLD_THRESHOLD:
-                print("Lancement de l'analyse YOLO...")
+                print("Lancement du template matching...")
                 slot1_id, slot2_id = detect_weapons()
                 send_init(slot1_id, slot2_id)
                 print(f"Init envoyé : Slot1={slot1_id}, Slot2={slot2_id}")
 
 
 def main() -> None:
-    load_model()
+    load_templates()
     keyboard.hook(on_key_event)
     print("PC1 Vision actif. En attente d'événements clavier...")
     keyboard.wait()

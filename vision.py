@@ -1,43 +1,72 @@
 import mss
 import numpy as np
-from ultralytics import YOLO
-from config import CAPTURE_REGION, YOLO_CONFIDENCE, YOLO_MODEL_PATH
+import cv2
+import os
+from config import CAPTURE_REGION, TEMPLATE_DIR, MATCH_THRESHOLD
 from shared_enums import WeaponID
 
-_model = None
+# Cache en RAM : {WeaponID.value -> np.ndarray (template en niveaux de gris binarisé)}
+_templates: dict[int, np.ndarray] = {}
 
 
-def load_model() -> None:
-    global _model
-    _model = YOLO(YOLO_MODEL_PATH)
-    print(f"Modèle YOLO chargé depuis {YOLO_MODEL_PATH}")
+def load_templates() -> None:
+    loaded = []
+    for weapon in WeaponID:
+        if weapon == WeaponID.NONE:
+            continue
+        path = os.path.join(TEMPLATE_DIR, f"{weapon.name.lower()}.png")
+        if not os.path.exists(path):
+            continue
+        img = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
+        _, binary = cv2.threshold(img, 200, 255, cv2.THRESH_BINARY)
+        _templates[weapon.value] = binary
+        loaded.append(weapon.name)
+
+    print(f"Templates chargés ({len(loaded)}) : {loaded}")
+
+
+def _match_weapon(region_gray: np.ndarray) -> int:
+    """Retourne le WeaponID le plus probable dans la région donnée."""
+    _, binary = cv2.threshold(region_gray, 200, 255, cv2.THRESH_BINARY)
+
+    best_score = 0.0
+    best_id = WeaponID.NONE
+
+    for weapon_id, template in _templates.items():
+        th, tw = template.shape
+        rh, rw = binary.shape
+        if tw > rw or th > rh:
+            continue
+
+        result = cv2.matchTemplate(binary, template, cv2.TM_CCOEFF_NORMED)
+        _, max_val, _, _ = cv2.minMaxLoc(result)
+
+        if max_val > best_score:
+            best_score = max_val
+            best_id = weapon_id
+
+    if best_score < MATCH_THRESHOLD:
+        return WeaponID.NONE
+
+    return best_id
 
 
 def detect_weapons() -> tuple[int, int]:
     """
-    Capture l'inventaire et retourne (slot1_id, slot2_id).
-    Retourne (WeaponID.NONE, WeaponID.NONE) si aucune arme détectée.
+    Capture la zone d'inventaire et retourne (slot1_id, slot2_id).
+    L'inventaire est coupé en deux moitiés : gauche = slot 1, droite = slot 2.
     """
     with mss.mss() as sct:
         screenshot = sct.grab(CAPTURE_REGION)
         frame = np.array(screenshot)
 
-    results = _model(frame, conf=YOLO_CONFIDENCE, verbose=False)[0]
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGRA2GRAY)
 
-    detected = []
-    for box in results.boxes:
-        class_name = results.names[int(box.cls)].upper()
-        x_center = float(box.xywh[0][0])
-        try:
-            weapon_id = WeaponID[class_name].value
-            detected.append((x_center, weapon_id))
-        except KeyError:
-            print(f"Arme inconnue détectée par YOLO : {class_name}")
+    mid = gray.shape[1] // 2
+    left_region = gray[:, :mid]
+    right_region = gray[:, mid:]
 
-    # Trie par position X (gauche = slot 1, droite = slot 2)
-    detected.sort(key=lambda item: item[0])
+    slot1_id = _match_weapon(left_region)
+    slot2_id = _match_weapon(right_region)
 
-    slot1 = detected[0][1] if len(detected) > 0 else WeaponID.NONE
-    slot2 = detected[1][1] if len(detected) > 1 else WeaponID.NONE
-
-    return slot1, slot2
+    return slot1_id, slot2_id
